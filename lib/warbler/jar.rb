@@ -21,6 +21,7 @@ module Warbler
     include RakeHelper
 
     DEFAULT_MANIFEST = %{Manifest-Version: 1.0\nCreated-By: Warbler #{Warbler::VERSION}\n\n}
+    MAX_CMD_LINE_ARGS = 511
 
     attr_reader :files
     attr_reader :app_filelist
@@ -44,8 +45,13 @@ module Warbler
     end
 
     def run_javac(config, compiled_ruby_files)
-      # Need to use the version of JRuby in the application to compile it
-      `java -classpath #{config.java_libs.join(File::PATH_SEPARATOR)} org.jruby.Main #{ruby_version(config)} -S jrubyc "#{compiled_ruby_files.join('" "')}"`
+      compiled_ruby_files.each_slice(MAX_CMD_LINE_ARGS) do |compiled_ruby_files_slice|
+        cmd_line = %Q{java -classpath #{config.java_libs.join(File::PATH_SEPARATOR)} org.jruby.Main #{ruby_version(config)} -S jrubyc "#{compiled_ruby_files_slice.join('" "')}"}
+        puts "executing #{cmd_line}"
+        result = system cmd_line
+        raise "javac failed to start" if result.nil?
+        raise "javac failed" unless result
+      end
     end
 
     def ruby_version(config)
